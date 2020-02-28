@@ -36,18 +36,16 @@ export default {
   },
   data() {
     return {
-      chocoStr: this.sampleInput || ''
+      chocoStr: this.sampleInput || ""
     };
   },
   mounted() {
-    const packages = parse(this.chocoStr);
-    console.log(packages);
+    this.parseAndEmit();
   },
   methods: {
     parseAndEmit() {
-      // console.log('parseandemit')
-      // const packages = parse();
-      // this.$emit('update:packages', packages);
+      const packages = parse(this.chocoStr);
+      this.$emit("update:packages", packages);
     }
   }
 };

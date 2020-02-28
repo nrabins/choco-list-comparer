@@ -1,5 +1,5 @@
 export function parse(input) {
-  let lines = input.split('\n');
+  let lines = input.trim().split('\n');
   lines = prune(lines);
   const packages = lines
     .map(parseLine)
@@ -23,7 +23,6 @@ function prune(lines) {
   });
 }
 
-
 function parseLine(line) {
   const chunks = line.split(' ');
   if (chunks.length != 2) {
@@ -31,37 +30,78 @@ function parseLine(line) {
     return null;
   }
   const name = chunks[0];
-  const version = parseVersion(chunks[1]);
+  const versionStr = chunks[1];
+  const version = parseVersion(versionStr);
   if (version == null) {
     return null;
   }
 
-  return { name, version };
+  return { name, version, versionStr };
 }
 
+// Break out the version into its components
 function parseVersion(versionStr) {
   const chunks = versionStr.split(".");
-  if (chunks.length != 3) {
-    console.warn(`Invalid version string: "${versionStr}"`);
+  let versionParts = chunks.map(chunk => {
+    const versionLevel = {};
+    if (chunk.includes('-pre')) {
+      const preChunks = chunk.split('-pre');
+      if (preChunks.length != 2) {
+        console.warn(`Malformed -pre: ${versionStr}`)
+        return null;
+      }
+      versionLevel.number = parseInt(preChunks[0]);
+      versionLevel.pre = parseInt(preChunks[1]);
+    } else {
+      versionLevel.number = parseInt(chunk);
+    }
+    return versionLevel;
+  });
+
+  if (versionParts.some(vp => vp == null)) {
     return null;
   }
+  
+  return versionParts;
+}
 
-  const version = {};
-  version.major = parseInt(chunks[0]);
-  version.minor = parseInt(chunks[1]);
 
-  const patchChunks = chunks[2].split('-pre');
-  version.patch = parseInt(patchChunks[0]);
+export function combinePackages(left, right) {
+  const packages = {};
+  left.forEach(p => {
+    if (!(p.name in packages)) {
+      packages[p.name] = {};
+    }
+    packages[p.name].left = {
+      version: p.version,
+      versionStr: p.versionStr
+    };
+  });
+  right.forEach(p => {
+    if (!(p.name in packages)) {
+      packages[p.name] = {};
+    }
+    packages[p.name].right = {
+      version: p.version,
+      versionStr: p.versionStr
+    };
+  })
 
-  if (patchChunks.length == 1) {
-    version.pre = null;
-  } else if (patchChunks.length == 2) {
-    version.pre = parseInt(patchChunks[1]);
-  } else {
-    console.warn(`Invalid version string: "${versionStr}"`);
-  }
+  const packageList = Object.keys(packages).map(name => {
+    const combinedPackage = {
+      name
+    };
 
-  return version;
+    if (packages[name].left) {
+      combinedPackage.left = packages[name].left;
+    }
+    if (packages[name].right) {
+      combinedPackage.right = packages[name].right;
+    }
+    return combinedPackage;
+  });
+  packageList.sort((a, b) => a.name > b.name ? 1 : -1);
+  return packageList;
 }
 
 
